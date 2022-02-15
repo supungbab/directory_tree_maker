@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>test</title>
+    
+  </head>
+  <body>
+    <div class="app">
+    </div>
+  </body>
+  <script>
+    const gitDatabase = async (url) => {
+      try {
+        const res = await fetch(url);
+
+        if(!res.ok){
+          throw new Error('서버의 상태가 이상합니다.');
+        }
+        return await res.json()
+      } catch(e) {
+        throw new Error(`무언가 잘못 되었습니다! ${e.message}`);
+      }
+    }
+    const rootTree = [];
+    let count = -1;
+    
+    const treeCreate = (tree) => {
+      const testTree = {};
+      let text = '';
+      const createTree = (tree, branchArray) => {
+        const keys = Object.keys(tree);
+        let count = keys.length;
+        
+        keys.forEach(key => {
+          branchArray.forEach(e => {
+            if(e>1) text+=' ┃ \t';
+            if(e===1) text+='\t';
+          })
+          if(count>1) text+= ' ┣━';
+          if(count===1) text+= ' ┗━'
+          if(tree[key].type === 'file'){
+            text+=` 📜 ${key}\n`;
+          } else{
+            text+=` 📂 ${key}\n`;
+            createTree(tree[key], [...branchArray, count]);
+          }
+          
+          count--;
+        })
+      }
+      createTree(tree, []);
+      console.log(text);
+    }
+    (async function(){
+      const url = 'https://api.github.com/repos/supungbab/Newsmoa/git/trees/main?recursive=1';
+      const gitDB = await gitDatabase(url);
+      // console.log(gitDB.tree);
+      const tree = gitDB.tree.map((content, index) => {
+        const depth = content.path.split('/');
+        const textIndex = depth.length;
+        return {
+          id: index + 1,
+          type: content.type,
+          depth: textIndex,
+          text: depth[textIndex - 1],
+          path: content.path
+        };
+      });
+
+      // 파일트리 오브젝트로 만들기
+      const treeObject = {};
+      tree.forEach(e => {
+        const {type, text, path} = e;
+        let pivot = treeObject;
+        if(type === 'tree'){
+          const folder = path.split('/');
+          folder.forEach(e => {
+            pivot[e] = {};
+            pivot = pivot[e];
+          });
+        } else {
+          const folder = path.split('/');
+          const file = folder.pop();
+          folder.forEach(e => {
+            pivot = pivot[e];
+          });
+          pivot[file] = {type:'file'};
+        }
+      })
+
+      treeCreate(treeObject);
+    })();
+    
+    
+  </script>
+</html>
